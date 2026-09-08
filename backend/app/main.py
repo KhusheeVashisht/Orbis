@@ -1,8 +1,10 @@
+import base64
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.websocket.connection import ConnectionManager
-
 from app.core.config import settings
+from app.services.audio_capture import AudioCapture
 
 
 app = FastAPI(
@@ -28,17 +30,20 @@ async def health_check():
         "service": "orbis-backend"
     }
 
+
 manager = ConnectionManager()
+
+audio_capture = AudioCapture()
+audio_capture.start()
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    Main WebSocket endpoint for Orbis real-time communication.
-    """
 
     await manager.connect(websocket)
 
     try:
+
         while True:
 
             message = await websocket.receive_json()
@@ -50,6 +55,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 audio_data = message.get("data", {}).get("audio")
 
                 if audio_data is None:
+
                     response = {
                         "type": "error",
                         "data": {
@@ -58,13 +64,33 @@ async def websocket_endpoint(websocket: WebSocket):
                     }
 
                 else:
-                    response = {
-                        "type": "audio_acknowledgement",
-                        "data": {
-                            "message": "Audio chunk received.",
-                            "audio_size": len(audio_data),
-                        },
-                    }
+
+                    try:
+
+                        decoded_audio = base64.b64decode(
+                            audio_data
+                        )
+
+                        processed_audio = audio_capture.process_audio(
+                            decoded_audio
+                        )
+
+                        response = {
+                            "type": "audio_acknowledgement",
+                            "data": {
+                                "message": "Audio chunk received.",
+                                "audio_size": len(processed_audio),
+                            },
+                        }
+
+                    except Exception as error:
+
+                        response = {
+                            "type": "error",
+                            "data": {
+                                "message": str(error),
+                            },
+                        }
 
             else:
 
@@ -82,5 +108,5 @@ async def websocket_endpoint(websocket: WebSocket):
             )
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
 
+        manager.disconnect(websocket)
