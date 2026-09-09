@@ -20,11 +20,12 @@ async def test_websocket():
     ).decode("utf-8")
 
     message = {
-        "type": "audio_chunk",
-        "data": {
-            "audio": encoded_audio,
-        },
-    }
+    "type": "audio_chunk",
+    "data": {
+        "audio": encoded_audio,
+        "target_language": "de",
+    },
+}
 
     async with websockets.connect(uri) as websocket:
 
