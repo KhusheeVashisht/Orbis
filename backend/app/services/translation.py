@@ -16,15 +16,43 @@ Translation
 Target Language Caption
 """
 
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM,
+)
+
 
 class TranslationService:
     """
-    Handles translation between languages.
-
-    The translation engine will be integrated behind this
-    service so that the rest of Orbis does not depend on
-    a specific translation provider.
+    Handles multilingual neural translation using NLLB-200.
     """
+
+    MODEL_NAME = "facebook/nllb-200-distilled-600M"
+
+    LANGUAGE_MAP = {
+        "en": "eng_Latn",
+        "de": "deu_Latn",
+        "fr": "fra_Latn",
+        "es": "spa_Latn",
+        "hi": "hin_Deva",
+        "ja": "jpn_Jpan",
+        "zh": "zho_Hans",
+        "ko": "kor_Hang",
+        "nl": "nld_Latn",
+    }
+
+    def __init__(self):
+        print("Loading Orbis translation model...")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.MODEL_NAME
+        )
+
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(
+            self.MODEL_NAME
+        )
+
+        print("Orbis translation model loaded.")
 
     def translate(
         self,
@@ -33,15 +61,14 @@ class TranslationService:
         target_language: str,
     ) -> dict:
         """
-        Translate text from the source language to the
-        viewer's selected target language.
+        Translate text using NLLB-200.
 
         Parameters:
             text:
                 Transcribed speech.
 
             source_language:
-                Language detected from the speaker's speech.
+                Language detected by Faster-Whisper.
 
             target_language:
                 Language selected by the viewer.
@@ -58,9 +85,44 @@ class TranslationService:
                 "translated_text": "",
             }
 
-        # Temporary implementation.
-        # A real neural translation engine will replace this.
-        translated_text = text
+        if source_language not in self.LANGUAGE_MAP:
+            raise ValueError(
+                f"Unsupported source language: {source_language}"
+            )
+
+        if target_language not in self.LANGUAGE_MAP:
+            raise ValueError(
+                f"Unsupported target language: {target_language}"
+            )
+
+        source_code = self.LANGUAGE_MAP[source_language]
+        target_code = self.LANGUAGE_MAP[target_language]
+
+        # Tell NLLB which language the input is written in.
+        self.tokenizer.src_lang = source_code
+
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+        )
+
+        # Generate translation in the viewer's selected language.
+        translated_tokens = self.model.generate(
+            **inputs,
+            forced_bos_token_id=(
+                self.tokenizer.convert_tokens_to_ids(
+                    target_code
+                )
+            ),
+            max_length=128,
+        )
+
+        translated_text = (
+            self.tokenizer.batch_decode(
+                translated_tokens,
+                skip_special_tokens=True,
+            )[0]
+        )
 
         return {
             "source_language": source_language,
