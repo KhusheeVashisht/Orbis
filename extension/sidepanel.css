@@ -187,3 +187,56 @@ footer {
 
     color: #888888;
 }
+.translation-card {
+    margin-top: 16px;
+
+    padding: 16px;
+
+    border: 1px solid #dddddd;
+
+    border-radius: 10px;
+
+    background: #fafafa;
+}
+
+
+.translation-card h2 {
+    margin-top: 0;
+
+    font-size: 16px;
+}
+
+
+.translation-section {
+    margin-top: 14px;
+}
+
+
+.translation-label {
+    margin-bottom: 6px;
+
+    font-size: 12px;
+
+    font-weight: bold;
+
+    color: #666666;
+}
+
+
+.translation-text {
+    min-height: 40px;
+
+    padding: 10px;
+
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    border: 1px solid #dddddd;
+
+    font-size: 14px;
+
+    line-height: 1.5;
+
+    word-wrap: break-word;
+}

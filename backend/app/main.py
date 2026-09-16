@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import os
 import tempfile
@@ -56,6 +57,28 @@ language_detection = LanguageDetection()
 
 translation_service = TranslationService()
 
+
+def process_utterance_pipeline(temporary_file_path: str, target_language: str):
+    """
+    Synchronous inference pipeline for Faster-Whisper and NLLB.
+    Executed off the main asyncio thread to avoid blocking WebSocket loop.
+    """
+    transcription = speech_to_text.transcribe(temporary_file_path)
+
+    language_result = language_detection.detect(
+        transcription["language"],
+        transcription["language_probability"],
+    )
+
+    translation_result = translation_service.translate(
+        transcription["text"],
+        language_result["language"],
+        target_language,
+    )
+
+    return transcription, language_result, translation_result
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
 
@@ -69,7 +92,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             message_type = message.get("type")
 
-            if message_type == "audio_chunk":
+            if message_type in ("audio_utterance", "audio_chunk"):
 
                 audio_data = message.get("data", {}).get("audio")
 
@@ -117,17 +140,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                     file.write(processed_audio)
                                     temporary_file = file.name
 
-                                transcription = speech_to_text.transcribe(
-                                    temporary_file
-                                )
-
-                                language_result = language_detection.detect(
-                                    transcription["language"],
-                                    transcription["language_probability"],
-                                )
-                                translation_result = translation_service.translate(
-                                    transcription["text"],
-                                    language_result["language"],
+                                (
+                                    transcription,
+                                    language_result,
+                                    translation_result,
+                                ) = await asyncio.to_thread(
+                                    process_utterance_pipeline,
+                                    temporary_file,
                                     target_language,
                                 )
 

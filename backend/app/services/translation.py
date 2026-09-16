@@ -85,10 +85,26 @@ class TranslationService:
                 "translated_text": "",
             }
 
+        # Bypass translation if source and target languages are identical
+        if source_language == target_language:
+            return {
+                "source_language": source_language,
+                "target_language": target_language,
+                "source_text": text,
+                "translated_text": text,
+            }
+
+        # Fallback if source language is not mapped in NLLB map
         if source_language not in self.LANGUAGE_MAP:
-            raise ValueError(
-                f"Unsupported source language: {source_language}"
+            print(
+                f"Warning: Source language '{source_language}' not mapped in NLLB. Returning original text."
             )
+            return {
+                "source_language": source_language,
+                "target_language": target_language,
+                "source_text": text,
+                "translated_text": text,
+            }
 
         if target_language not in self.LANGUAGE_MAP:
             raise ValueError(
